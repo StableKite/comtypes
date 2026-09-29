@@ -1,0 +1,82 @@
+name: StableKite strict Pyright
+
+on:
+  push:
+    branches:
+      - stablekite/typing-pyright-ci
+  workflow_dispatch:
+
+jobs:
+  strict-pyright:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Build and install wheel
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build --wheel
+          python -m venv .venv
+          $wheel = (Get-ChildItem dist\*.whl | Select-Object -First 1).FullName
+          .\.venv\Scripts\python.exe -m pip install --no-deps $wheel
+          Push-Location $env:RUNNER_TEMP
+          & "$env:GITHUB_WORKSPACE\.venv\Scripts\python.exe" -c "import comtypes, pathlib; print(comtypes.__file__); assert pathlib.Path(comtypes.__file__).with_name('py.typed').is_file()"
+          Pop-Location
+      - name: Strict Pyright consumer
+        shell: pwsh
+        run: |
+          @'
+          from ctypes import HRESULT, c_int
+
+          from comtypes import (
+              COMMETHOD,
+              DISPMETHOD,
+              DISPPROPERTY,
+              STDMETHOD,
+              CoClass,
+              GUID,
+              IUnknown,
+              com_coclass_registry,
+              com_interface_registry,
+              dispid,
+          )
+
+          iid: GUID = GUID("{00000000-0000-0000-C000-000000000046}")
+          interface_type: type[IUnknown] = IUnknown
+          coclass_type: type[CoClass] = CoClass
+          interfaces: dict[str, type[IUnknown]] = com_interface_registry
+          coclasses: dict[str, type[CoClass]] = com_coclass_registry
+
+          std_name: str = STDMETHOD(HRESULT, "Std", (c_int,)).name
+          com_name: str = COMMETHOD([dispid(10010), "propget"], HRESULT, "Com", (["in"], c_int, "value")).name
+          disp_name: str = DISPMETHOD([1], HRESULT, "Disp", (["in"], c_int, "value")).name
+          prop_name: str = DISPPROPERTY([2], c_int, "Value").name
+
+          assert iid
+          assert interface_type is IUnknown
+          assert coclass_type is CoClass
+          assert isinstance(interfaces, dict)
+          assert isinstance(coclasses, dict)
+          assert std_name == "Std"
+          assert com_name == "Com"
+          assert disp_name == "Disp"
+          assert prop_name == "Value"
+          '@ | Set-Content strict_consumer.py -Encoding utf8NoBOM
+
+          @'
+          {
+            "typeCheckingMode": "strict",
+            "pythonVersion": "3.14",
+            "include": ["strict_consumer.py"],
+            "reportPrivateImportUsage": "error"
+          }
+          '@ | Set-Content pyrightconfig.json -Encoding utf8NoBOM
+
+          npx --yes pyright@latest --version
+          npx --yes pyright@latest --pythonpath .\.venv\Scripts\python.exe
