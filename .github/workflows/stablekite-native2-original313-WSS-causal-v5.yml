@@ -1,0 +1,116 @@
+name: Causal exact original 3.13 x64 win32com WSS baseline and candidate
+'on':
+  push:
+    branches:
+    - stablekite/native2-original313-win32com-WSS-causal-v5
+jobs:
+  baseline-original313x64-with-third:
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      matrix:
+        os:
+        - windows-latest
+        python-version:
+        - '3.13'
+        architecture:
+        - x64
+        support:
+        - with 3rd parties
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        ref: 32d35736baad96b72097fd13cc89870c6f9dbf0e
+    - name: Verify exact qualified source
+      shell: bash
+      run: 'test "$(git rev-parse HEAD)" = "32d35736baad96b72097fd13cc89870c6f9dbf0e"
+
+        '
+    - name: Set up Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: ${{ matrix.python-version }}
+        architecture: ${{ matrix.architecture }}
+    - name: Set up MSVC
+      uses: ilammy/msvc-dev-cmd@v1
+    - name: Build and register the OutProc COM server
+      run: 'cd source/CppTestSrv
+
+        nmake /f Makefile
+
+        ./server.exe /RegServer
+
+        '
+    - name: unittest comtypes
+      run: "if (\"${{ matrix.support }}\" -eq \"with 3rd parties\") {\n  pip install numpy\n  pip install pywin32\n}\npip install coverage[toml]\ncoverage run -m unittest discover -v -s comtypes\\test -t comtypes\\test\n"
+    - name: Unregister the OutProc COM server
+      run: 'cd source/CppTestSrv
+
+        ./server.exe /UnregServer
+
+        '
+    - name: Retain actual measured coverage for the required publisher
+      run: coverage xml -o coverage.xml
+    - name: Retain exact coverage report artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: baseline-original313x64-with-third
+        path: coverage.xml
+        if-no-files-found: error
+  candidate-native2-313x64-with-third:
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      matrix:
+        os:
+        - windows-latest
+        python-version:
+        - '3.13'
+        architecture:
+        - x64
+        support:
+        - with 3rd parties
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        ref: 473fbb76a8dfe8a4aacba19ef5151f69d28b4ec5
+    - name: Verify exact qualified source
+      shell: bash
+      run: 'test "$(git rev-parse HEAD)" = "473fbb76a8dfe8a4aacba19ef5151f69d28b4ec5"
+
+        '
+    - name: Set up Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: ${{ matrix.python-version }}
+        architecture: ${{ matrix.architecture }}
+    - name: Set up MSVC
+      uses: ilammy/msvc-dev-cmd@v1
+    - name: Build and register the OutProc COM server
+      run: 'cd source/CppTestSrv
+
+        nmake /f Makefile
+
+        ./server.exe /RegServer
+
+        '
+    - name: unittest comtypes
+      run: "if (\"${{ matrix.support }}\" -eq \"with 3rd parties\") {\n  pip install numpy\n  pip install pywin32\n}\npip install coverage[toml]\ncoverage run -m unittest discover -v -s comtypes\\test -t comtypes\\test\n"
+    - name: Unregister the OutProc COM server
+      run: 'cd source/CppTestSrv
+
+        ./server.exe /UnregServer
+
+        '
+    - name: Retain actual measured coverage for the required publisher
+      run: coverage xml -o coverage.xml
+    - name: Retain exact coverage report artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: candidate-native2-313x64-with-third
+        path: coverage.xml
+        if-no-files-found: error
