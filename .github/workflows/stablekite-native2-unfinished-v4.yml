@@ -1,0 +1,149 @@
+name: Complete only eleven original comtypes cases cancelled before a result
+'on':
+  push:
+    branches:
+    - stablekite/native2-unfinished-members-v4
+jobs:
+  unit-tests:
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      matrix:
+        include:
+        - os: windows-latest
+          python-version: '3.12'
+          architecture: x86
+          support: with 3rd parties
+        - os: windows-latest
+          python-version: '3.12'
+          architecture: x86
+          support: without 3rd parties
+        - os: windows-latest
+          python-version: '3.9'
+          architecture: x86
+          support: with 3rd parties
+        - os: windows-latest
+          python-version: '3.12'
+          architecture: x64
+          support: without 3rd parties
+        - os: windows-latest
+          python-version: '3.10'
+          architecture: x64
+          support: with 3rd parties
+        - os: windows-latest
+          python-version: '3.11'
+          architecture: x64
+          support: without 3rd parties
+        - os: windows-latest
+          python-version: '3.13'
+          architecture: x64
+          support: with 3rd parties
+        - os: windows-latest
+          python-version: '3.12'
+          architecture: x64
+          support: with 3rd parties
+        - os: windows-latest
+          python-version: '3.13'
+          architecture: x86
+          support: with 3rd parties
+        - os: windows-latest
+          python-version: '3.14'
+          architecture: x64
+          support: without 3rd parties
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        ref: 473fbb76a8dfe8a4aacba19ef5151f69d28b4ec5
+    - name: Verify exact qualified source
+      shell: bash
+      run: 'test "$(git rev-parse HEAD)" = "473fbb76a8dfe8a4aacba19ef5151f69d28b4ec5"
+
+        '
+    - name: Set up Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: ${{ matrix.python-version }}
+        architecture: ${{ matrix.architecture }}
+    - name: Set up MSVC
+      uses: ilammy/msvc-dev-cmd@v1
+    - name: Build and register the OutProc COM server
+      run: 'cd source/CppTestSrv
+
+        nmake /f Makefile
+
+        ./server.exe /RegServer
+
+        '
+    - name: unittest comtypes
+      run: "if (\"${{ matrix.support }}\" -eq \"with 3rd parties\") {\n  pip install numpy\n  pip install pywin32\n}\npip install coverage[toml]\ncoverage run -m unittest discover -v -s comtypes\\test -t comtypes\\test\n"
+    - name: Unregister the OutProc COM server
+      run: 'cd source/CppTestSrv
+
+        ./server.exe /UnregServer
+
+        '
+    - name: Retain actual measured coverage for the required publisher
+      run: coverage xml -o coverage.xml
+    - name: Retain exact coverage report artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: unit-tests-${{ matrix.python-version }}-${{ matrix.architecture }}-${{ matrix.support }}
+        path: coverage.xml
+        if-no-files-found: error
+  native315t-tests:
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      matrix:
+        include:
+        - os: windows-latest
+          python-version: 3.15t
+          architecture: x64
+          support: without 3rd parties
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        ref: 473fbb76a8dfe8a4aacba19ef5151f69d28b4ec5
+    - name: Verify exact qualified source
+      shell: bash
+      run: 'test "$(git rev-parse HEAD)" = "473fbb76a8dfe8a4aacba19ef5151f69d28b4ec5"
+
+        '
+    - name: Set up Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: ${{ matrix.python-version }}
+        architecture: ${{ matrix.architecture }}
+    - name: Set up MSVC
+      uses: ilammy/msvc-dev-cmd@v1
+    - name: Build and register the OutProc COM server
+      run: 'cd source/CppTestSrv
+
+        nmake /f Makefile
+
+        ./server.exe /RegServer
+
+        '
+    - name: unittest comtypes
+      run: "if (\"${{ matrix.support }}\" -eq \"with 3rd parties\") {\n  pip install numpy\n  pip install pywin32\n}\npip install coverage[toml]\ncoverage run -m unittest discover -v -s comtypes\\test -t comtypes\\test\n"
+    - name: Unregister the OutProc COM server
+      run: 'cd source/CppTestSrv
+
+        ./server.exe /UnregServer
+
+        '
+    - name: Verify natural GIL off after importing real native dependencies
+      shell: pwsh
+      run: "python -c \"import ctypes,sys,comtypes.client; assert sys.flags.gil is None and not sys._is_gil_enabled(); print(sys.version)\"\nif (\"${{ matrix.support }}\" -eq \"with 3rd parties\") {\n  python -c \"import ctypes,sys,comtypes.client,numpy,pythoncom,win32api; assert sys.flags.gil is None and not sys._is_gil_enabled()\"\n}\n"
+    - name: Retain actual measured coverage for the required publisher
+      run: coverage xml -o coverage.xml
+    - name: Retain exact coverage report artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: native315t-tests-${{ matrix.python-version }}-${{ matrix.architecture }}-${{ matrix.support }}
+        path: coverage.xml
+        if-no-files-found: error
