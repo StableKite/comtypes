@@ -49,7 +49,10 @@ class Test(unittest.TestCase):
         # %TEMP%\comtypes_cache\<imagebasename>25-25
         # the image is python25.dll
         ma, mi = sys.version_info[:2]
-        cache = rf"comtypes_cache\{IMGBASE}{ma:d}{mi:d}-{ma:d}{mi:d}"
+        # A free-threaded DLL has a 't' suffix even when python.exe does not.
+        dll_path = comtypes.typeinfo.GetModuleFileName(sys.dllhandle, 260)
+        dll_basename = os.path.splitext(os.path.basename(dll_path))[0]
+        cache = rf"comtypes_cache\{dll_basename}-{ma:d}{mi:d}"
         path = os.path.join(tempfile.gettempdir(), cache)
         with patch_empty_module_to_comtypes_gen():
             gen_dir = comtypes.client._find_gen_dir()

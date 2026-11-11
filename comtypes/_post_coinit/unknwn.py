@@ -275,7 +275,9 @@ class _compointer_base(c_void_p, metaclass=_compointer_meta):
 
     def __del__(self, _debug=logger.debug) -> None:
         "Release the COM refcount we own."
-        if self:
+        # A ctypes field or .contents view borrows a COM reference and follows
+        # its ctypes base chain. Do not release an unowned reference.
+        if self and self._b_base_ is None:
             # comtypes calls CoUninitialize() when the atexit handlers
             # runs.  CoUninitialize() cleans up the COM objects that
             # are still alive. Python COM pointers may still be

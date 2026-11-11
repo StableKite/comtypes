@@ -496,7 +496,8 @@ class tagVARIANT(Structure):
 
             # Retrieving a COM pointer from a structure field does NOT
             # call AddRef(), have to call it manually:
-            punk = self._.pRecInfo
+            # Own the AddRef below independently of the borrowed structure field.
+            punk = cast(self._.pRecInfo, POINTER(IUnknown))
             punk.AddRef()
             ri = punk.QueryInterface(IRecordInfo)
 

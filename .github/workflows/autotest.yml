@@ -7,6 +7,9 @@ on:
 jobs:
   unit-tests:
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+      id-token: write
     strategy:
       matrix:
         os: [windows-latest]
@@ -38,6 +41,7 @@ jobs:
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v7
         with:
+          use_oidc: true
           fail_ci_if_error: true
           network_filter: comtype
           token: ${{ secrets.CODECOV_TOKEN }}

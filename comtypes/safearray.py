@@ -321,6 +321,8 @@ def _make_safearray_type(itemtype):
                     # speedup by creating an ndarray here.
                     for p in elems:
                         if bool(p):
+                            # Give the temporary AddRef its own pointer wrapper.
+                            p = cast(p, self._itemtype_)
                             p.AddRef()
                             result.append(p.QueryInterface(itf))
                         else:
